@@ -314,7 +314,7 @@ prefix = "install"
 
 # Where to install system configuration files
 # If this is a relative path, it will get installed in `prefix` above
-#sysconfdir = "/etc"
+sysconfdir = "etc/"
 
 # Where to install documentation in `prefix` above
 #docdir = "share/doc/rust"
