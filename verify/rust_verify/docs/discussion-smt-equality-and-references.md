@@ -195,3 +195,18 @@ I think you maybe only lose the ability to encode some important program logic i
 (tjhance)
 
 well you know the rust documentation doesn't say that `capacity` needs to return the same result each time
+
+
+
+---
+
+(tjhance)
+
+The case of objects that use interior mutability but expose an immutable interface could be handled with ghost state. For example, suppose RefCell had an interface that required you to supply ghost state (representing the contents) to use it. Then, in your `List` example, the `List` struct would have another ghost field, and you could build an interpretation function could use the ghost state.
+
+
+
+(Chris)
+
+It's also possible that we don't need `pure_eq`. Maybe SMT equality is all we need in specs (it's good enough for Dafny, right?). Then for executable code, we could just let `eq` be nondeterministic in general. If `eq` happens to be pure, then we can write a precise postcondition for it. If it's not pure, then we'd write an imprecise postcondition like `true`, which is perfectly sound. But in both cases, we don't have to write a postcondition that depends on the heap, so we avoid specifying that `eq` depends on the heap.
+

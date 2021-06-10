@@ -107,7 +107,20 @@ Again, we treat generic adts as having this property if the type parameters have
 
 Possibly with the exception of `Vec::capacity` and related methods, `Vec<T>` is a type that satisfies this property, when `T` is either structural (`Vec<Thing>`) or "immutable" (`Vec<Vec<Thing>>`).
 
+## Using _traits_ to strengthen a function's or type's spec
+
+The rust standard library sometimes uses ("marker") traits to denote that a certain type has a specific property, potentially that a certain function has a stronger (more restrictive) specification. One example is `stc::cmp::Eq`: this trait does not define any new functions, but types implementing it promise that the `PartialEq::eq` (`==`) implementation is an equivalence relation: in addition to it being symmetric and transitive (as required by `PartialEq`), `Eq` asserts that `==` is also reflexive. Another example is `std::marker::Send` and `std::marker::Sync`, which asserts that a type is can be safely transferred across thread boundaries, and that it's one for which it's safe to share references across threads, respectively.
+
+As described in the following section(s), we plan on leaning on this to extend the specification for `==` to, e.g., structural equality, for the types that conform to it.
+
 ## The `builtin::StructEq` trait
 
 Because the `std::marker::StructuralEq` reflects only shallow structural equality, we add a verifier-specific marker trait, `builtin::StructEq`, which can only be implemented for an adt if its `==` implementation conforms to **structural** equality. Adts that implement this trait are encoded as `air` datatypes, and `==` for these types is encoded as smt equality.
 
+
+
+
+
+## TODO
+
+* [ ] 
