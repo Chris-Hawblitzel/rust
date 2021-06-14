@@ -117,6 +117,21 @@ As described in the following section(s), we plan on leaning on this to extend t
 
 Because the `std::marker::StructuralEq` reflects only shallow structural equality, we add a verifier-specific marker trait, `builtin::StructEq`, which can only be implemented for an adt if its `==` implementation conforms to structural equality. Adts that implement this trait are encoded as `air` datatypes, and `==` for these types is encoded as smt equality, whenever all of their fields are visible in the current scope; if at least _one_ of the fields is not visible, the encoding will be opaque, as discussed later.
 
+The `trait builting::StructEq` can be implemented by the user, and the verifier checks that the type can indeed recursively conform to structural equality, and that the `==` implementation matches. If there are type parameters, these must also restricted to implement `builtin::StructEq`. A `derive` macro is provided, so that the user can write:
+
+```rust
+#[derive(PartialEq, Eq, StructEq)]
+struct Thing<T> {
+  value: T,
+}
+```
+
+The following derived `StructEq` implementation would match the following:
+
+```rust
+impl<T: builtin::StructEq> builtin::StructEq for Thing<T> { }
+```
+
 ## The `builtin::View` trait, and `builtin::ViewEq`
 
 In general, specifications for public functions of a type should be written in terms of an abstract representation of the type's contents. A `Vec<u64>` should be represented just as a sequence (maybe, a slice) of integers; by default none of the facts necessary to prove the implementation should leak into the publicly visible specification of the interface. In our experience with _Veribetrfs_, inadvertently exposing internal invariants and properties is one of the common causes of long verification times and timeouts; this is because the solver has access to facts internal to the implementations that are irrelevant but can still be selected and cause qunatifier triggers to fire.
@@ -125,7 +140,7 @@ With the exception of very simple ADTs that have all public fields and implement
 
 ```rust
 trait View {
-  type View : std::marker::StructuralEq;
+  type View : std::marker::StructEq;
   
   #[spec]
   fn view(&self) -> Self::View { unimplemented!() }
@@ -154,8 +169,24 @@ pub fn get(&self, index: usize) -> Option<T> {
 
 Note that we did not provide an implementation for the `view` function. Generally speaking, `.view()` is unaffected by functions on the type that take immutable references. We are still working out the details on when `.view()` should be havoc'd.
 
+The `builtin::ViewEq` trait indicates that the equality implemented by `==` matches view equality, which is always structural equality of the `View`. `builtin::ViewEq` is an `unsafe` trait, as the verifier generally cannot check whether `==` matches view equality. There are two ways of imlpementing `ViewEq`:
+
+1. The user can manually write `unsafe impl buiiltin::ViewEq for T`, and this becomes part of the TCB. The `unsafe` keyword allows easy inspection.
+2. The user can use a derive macro to `#[derive(ViewEq)]` the implementation for a type that also implements `View`. In this case the verifier will check that `a == b` $ \Leftrightarrow $ `a.view() == b.view()`.
+
+* [ ] Should implementing `View` also require that the view does **not** change except for when we have `mut` or `&mut T`? Do we want a separate trait for that?
+
+## Immutable references, `&_ T`, and the `builtin::ImmutableView` trait
+
+
+
+Control havoc-ing with the `builtin::Immutable` trait. `StructEq` implies `Immutable` and `View` requires `Immutable`?
+
 
 
 ## TODO
 
 * [ ] When to havoc `.view()`
+* [ ] What about `Vec<T>` where `T` is "immutable", and where it has interior mutability?
+* [ ] `Hash`
+* [ ] Auto-`opaque`
