@@ -2,7 +2,7 @@
 
 Andrea Lattuada, June 2nd 2021
 
-In the document I will refer to both `struct`s and `enum`s as "algebraic data types", adts in short.
+In the document I will refer to both `struct`s and `enum`s as "algebraic data types", adts in short. For the sake of writing non-contrived examples, we are going to assume that we have chosen a design for "mathematical" sequences that's similar to dafny's sequences.
 
 ## Design dimensions
 
@@ -113,14 +113,49 @@ The rust standard library sometimes uses ("marker") traits to denote that a cert
 
 As described in the following section(s), we plan on leaning on this to extend the specification for `==` to, e.g., structural equality, for the types that conform to it.
 
-## The `builtin::StructEq` trait
+## The `builtin::StructEq` trait, and visibility
 
-Because the `std::marker::StructuralEq` reflects only shallow structural equality, we add a verifier-specific marker trait, `builtin::StructEq`, which can only be implemented for an adt if its `==` implementation conforms to **structural** equality. Adts that implement this trait are encoded as `air` datatypes, and `==` for these types is encoded as smt equality.
+Because the `std::marker::StructuralEq` reflects only shallow structural equality, we add a verifier-specific marker trait, `builtin::StructEq`, which can only be implemented for an adt if its `==` implementation conforms to structural equality. Adts that implement this trait are encoded as `air` datatypes, and `==` for these types is encoded as smt equality, whenever all of their fields are visible in the current scope; if at least _one_ of the fields is not visible, the encoding will be opaque, as discussed later.
 
+## The `builtin::View` trait, and `builtin::ViewEq`
 
+In general, specifications for public functions of a type should be written in terms of an abstract representation of the type's contents. A `Vec<u64>` should be represented just as a sequence (maybe, a slice) of integers; by default none of the facts necessary to prove the implementation should leak into the publicly visible specification of the interface. In our experience with _Veribetrfs_, inadvertently exposing internal invariants and properties is one of the common causes of long verification times and timeouts; this is because the solver has access to facts internal to the implementations that are irrelevant but can still be selected and cause qunatifier triggers to fire.
+
+With the exception of very simple ADTs that have all public fields and implement `StructEq`, the abstract representation of a type must be specified by implementing the `View` trait:
+
+```rust
+trait View {
+  type View : std::marker::StructuralEq;
+  
+  #[spec]
+  fn view(&self) -> Self::View { unimplemented!() }
+}
+```
+
+So, for `Vec`, we'd implement `View` as something like:
+
+```rust
+impl<T: builtin::StructEq> builtin::View for Vec<T> {
+  type View = [T]; // (a sequence of T's)
+}
+```
+
+The specification for `Vec::push` and `Vec::get` can then be along the lines of:
+
+```rust
+pub fn push(&mut self, value: T) {
+  ensures(self.view() == old(self).view() + [value]);
+```
+
+```rust
+pub fn get(&self, index: usize) -> Option<T> {
+ 	ensures(result == self.view()[index]);
+```
+
+Note that we did not provide an implementation for the `view` function. Generally speaking, `.view()` is unaffected by functions on the type that take immutable references. We are still working out the details on when `.view()` should be havoc'd.
 
 
 
 ## TODO
 
-* [ ] 
+* [ ] When to havoc `.view()`
