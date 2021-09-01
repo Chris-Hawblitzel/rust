@@ -113,24 +113,36 @@ The rust standard library sometimes uses ("marker") traits to denote that a cert
 
 As described in the following section(s), we plan on leaning on this to extend the specification for `==` to, e.g., structural equality, for the types that conform to it.
 
-## The `builtin::StructEq` trait, and visibility
+## The `builtin::Structural` trait, and visibility
 
-Because the `std::marker::StructuralEq` reflects only shallow structural equality, we add a verifier-specific marker trait, `builtin::StructEq`, which can only be implemented for an adt if its `==` implementation conforms to structural equality. Adts that implement this trait are encoded as `air` datatypes, and `==` for these types is encoded as smt equality, whenever all of their fields are visible in the current scope; if at least _one_ of the fields is not visible, the encoding will be opaque, as discussed later.
+Because the `std::marker::StructuralEq` reflects only shallow structural equality, we add a verifier-specific marker trait, `builtin::Structural`, which can only be implemented for an adt if its `==` implementation conforms to structural equality. Adts that implement this trait are encoded as `air` datatypes, and `==` for these types is encoded as smt equality, whenever all of their fields are visible in the current scope; if at least _one_ of the fields is not visible, the encoding will be opaque, as discussed later.
 
-The `trait builting::StructEq` can be implemented by the user, and the verifier checks that the type can indeed recursively conform to structural equality, and that the `==` implementation matches. If there are type parameters, these must also restricted to implement `builtin::StructEq`. A `derive` macro is provided, so that the user can write:
+The `trait builtint::Structural` can be implemented by the user, and the verifier checks that the type can indeed recursively conform to structural equality, and that the `==` implementation matches. If there are type parameters, these must also restricted to implement `builtin::Structural`. A `derive` macro is provided, so that the user can write:
 
 ```rust
-#[derive(PartialEq, Eq, StructEq)]
+#[derive(PartialEq, Eq, Structural)]
 struct Thing<T> {
   value: T,
 }
 ```
 
-The following derived `StructEq` implementation would match the following:
+The following derived `Structural` implementation would match the following:
 
 ```rust
-impl<T: builtin::StructEq> builtin::StructEq for Thing<T> { }
+impl<T: builtin::Structural> builtin::Structural for Thing<T> { }
 ```
+
+## `builtin::Structural` types with non-visible fields
+
+When referencing a `Structural` type from a separate module where some of the fields are not visible (not `pub`/ `pub(crate)`), we encode the entire type as an opaque z3 "sort".
+
+
+
+
+
+---
+
+
 
 ## The `builtin::View` trait, and `builtin::ViewEq`
 
