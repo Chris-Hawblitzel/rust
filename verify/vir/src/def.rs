@@ -76,6 +76,7 @@ pub const TYPE_ID_SINT: &str = "SINT";
 pub const PREFIX_TYPE_ID: &str = "TYPE%";
 pub const HAS_TYPE: &str = "has_type";
 pub const VARIANT_FIELD_SEPARATOR: &str = "/";
+pub const PREFIX_OPAQUE_DATATYPE: &str = "OPAQ&";
 
 pub fn suffix_global_id(ident: &Ident) -> Ident {
     Arc::new(ident.to_string() + SUFFIX_GLOBAL)
@@ -103,6 +104,10 @@ pub fn suffix_rename(ident: &Ident) -> Ident {
 
 pub fn prefix_type_id(ident: &Ident) -> Ident {
     Arc::new(PREFIX_TYPE_ID.to_string() + ident)
+}
+
+pub fn prefix_opaque_datatype(ident: &Ident) -> Ident {
+    Arc::new(PREFIX_OPAQUE_DATATYPE.to_string() + ident)
 }
 
 pub fn prefix_box(ident: &Ident) -> Ident {
