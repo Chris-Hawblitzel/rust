@@ -136,7 +136,9 @@ impl<T: builtin::Structural> builtin::Structural for Thing<T> { }
 
 When referencing a `Structural` type from a separate module where some of the fields are not visible (not `pub`/ `pub(crate)`), we encode the entire type as an opaque z3 "sort".
 
+## `builtin::Immutable`, `builtin::ImmutableEq` for adts that (may) have interior mutability (and/or raw pointers) but expose an "immutable" interface
 
+When a type may have interior mutability, but exposes an "immutable" interface (through its entire API), the user can mark it `Immutable`. Additionally, the trait `builtin::ImmutableEq` asserts that `==` conforms to "mathematical" (smt) equality. `Immutable` is required for `ImmutableEq`.
 
 
 
@@ -148,7 +150,7 @@ When referencing a `Structural` type from a separate module where some of the fi
 
 In general, specifications for public functions of a type should be written in terms of an abstract representation of the type's contents. A `Vec<u64>` should be represented just as a sequence (maybe, a slice) of integers; by default none of the facts necessary to prove the implementation should leak into the publicly visible specification of the interface. In our experience with _Veribetrfs_, inadvertently exposing internal invariants and properties is one of the common causes of long verification times and timeouts; this is because the solver has access to facts internal to the implementations that are irrelevant but can still be selected and cause qunatifier triggers to fire.
 
-With the exception of very simple ADTs that have all public fields and implement `StructEq`, the abstract representation of a type must be specified by implementing the `View` trait:
+With the exception of very simple ADTs that have all public fields and implement `Structural`, the abstract representation of a type must be specified by implementing the `View` trait:
 
 ```rust
 trait View {
@@ -183,12 +185,12 @@ Note that we did not provide an implementation for the `view` function. Generall
 
 The `builtin::ViewEq` trait indicates that the equality implemented by `==` matches view equality, which is always structural equality of the `View`. `builtin::ViewEq` is an `unsafe` trait, as the verifier generally cannot check whether `==` matches view equality. There are two ways of imlpementing `ViewEq`:
 
-1. The user can manually write `unsafe impl buiiltin::ViewEq for T`, and this becomes part of the TCB. The `unsafe` keyword allows easy inspection.
+1. The user can manually write `unsafe impl builtin::ViewEq for T`, and this becomes part of the TCB. The `unsafe` keyword allows easy inspection.
 2. The user can use a derive macro to `#[derive(ViewEq)]` the implementation for a type that also implements `View`. In this case the verifier will check that `a == b` $ \Leftrightarrow $ `a.view() == b.view()`.
 
-* [ ] Should implementing `View` also require that the view does **not** change except for when we have `mut` or `&mut T`? Do we want a separate trait for that?
+Implementing `View` also requires that the view does **not** change except for when we have `mut` or `&mut T`: to start this is trivially enforced by having `View` require `Immutable` or `Structural`.
 
-## Immutable references, `&_ T`, and the `builtin::ImmutableView` trait
+## Immutable references, `&_ T`
 
 
 
@@ -199,6 +201,8 @@ Control havoc-ing with the `builtin::Immutable` trait. `StructEq` implies `Immut
 ## TODO
 
 * [ ] When to havoc `.view()`
-* [ ] What about `Vec<T>` where `T` is "immutable", and where it has interior mutability?
+* [ ] What about `Vec<T>` where `T` is "immutable"
+* [ ] What about `Vec<T>` where `T` has interior mutability -- punt on this?
 * [ ] `Hash`
-* [ ] Auto-`opaque`
+* [x] Auto-`opaque`
+
