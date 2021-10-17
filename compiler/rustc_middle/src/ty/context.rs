@@ -934,6 +934,18 @@ pub trait FormalVerifierTyping {
         expected_ty: &Option<Ty<'tcx>>,
     ) -> Ty<'tcx>;
 
+    // Some((false, ty)) means widen rhs to lhs_ty and then return ty
+    // Some((true, ty)) means widen lhs to rhs_ty and then return ty
+    fn widen_binary_types<'tcx>(
+        &mut self,
+        tcx: TyCtxt<'tcx>,
+        op: hir::BinOp, 
+        lhs_expr: &'tcx hir::Expr<'tcx>,
+        rhs_expr: &'tcx hir::Expr<'tcx>,
+        lhs_ty: Ty<'tcx>,
+        rhs_ty: Ty<'tcx>,
+    ) -> Option<(bool, Ty<'tcx>)>;
+
     fn cast_type<'tcx>(&mut self, tcx: TyCtxt<'tcx>, t_expr: Ty<'tcx>, t_cast: Ty<'tcx>) -> bool;
     fn is_infinite_range<'tcx>(&mut self, tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool;
     fn str_infinite_range<'tcx>(&mut self, tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> &'static str;
@@ -954,6 +966,22 @@ impl TyCtxt<'tcx> {
             None => ty,
             Some(formal_verifier) => {
                 formal_verifier.coerce_type(self, expr, ty, expected_ty)
+            }
+        }
+    }
+
+    pub fn widen_binary_types(
+        self,
+        op: hir::BinOp, 
+        lhs_expr: &'tcx hir::Expr<'tcx>,
+        rhs_expr: &'tcx hir::Expr<'tcx>,
+        lhs_ty: Ty<'tcx>,
+        rhs_ty: Ty<'tcx>,
+    ) -> Option<(bool, Ty<'tcx>)> {
+        match &mut *(self.formal_verifier_callback.borrow_mut()) {
+            None => None,
+            Some(formal_verifier) => {
+                formal_verifier.widen_binary_types(self, op, lhs_expr, rhs_expr, lhs_ty, rhs_ty)
             }
         }
     }

@@ -203,8 +203,36 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let result = self.lookup_op_method(lhs_ty, &[rhs_ty_var], Op::Binary(op, is_assign));
 
         // see `NB` above
-        let rhs_ty = self.check_expr_coercable_to_type(rhs_expr, rhs_ty_var, Some(lhs_expr));
+        // formal verifier: expand check_expr_coercable_to_type here and interpose widening
+        // let rhs_ty = self.check_expr_coercable_to_type(rhs_expr, rhs_ty_var, Some(lhs_expr));
+        let rhs_ty = self.check_expr_with_hint(rhs_expr, rhs_ty_var);
+        let widen_ty = self.tcx.widen_binary_types(op, lhs_expr, rhs_expr, lhs_ty, rhs_ty);
+        let rhs_ty = match widen_ty {
+            None | Some((false, _)) => {
+                self.demand_coerce(rhs_expr, rhs_ty, rhs_ty_var, Some(lhs_expr), AllowTwoPhase::No)
+            }
+            Some((true, _)) => {
+                // If we're going to widen the lhs type to the rhs type,
+                // don't try to coerce the rhs type to the narrower lhs type
+                self.demand_coerce(
+                    lhs_expr,
+                    lhs_ty,
+                    rhs_ty_var,
+                    Some(lhs_expr),
+                    AllowTwoPhase::No
+                );
+                rhs_ty
+            }
+        };
+
         let rhs_ty = self.resolve_vars_with_obligations(rhs_ty);
+
+        // formal verifier
+        match widen_ty {
+            None => {}
+            Some((false, return_ty)) => return (lhs_ty, lhs_ty, return_ty),
+            Some((true, return_ty)) => return (rhs_ty, rhs_ty, return_ty),
+        };
 
         let return_ty = match result {
             Ok(method) => {
